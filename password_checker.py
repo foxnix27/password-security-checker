@@ -2,6 +2,8 @@ import argparse
 import getpass
 import hashlib
 import re
+import secrets
+import string
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -74,9 +76,9 @@ def check_password(password):
     # Check password length
     if len(password) >= 12:
         score += 2
-    elif len(password) >= 8:
-        score += 1
     else:
+        if len(password) >= 8:
+            score += 1
         suggestions.append("Use at least 12 characters.")
 
     # Check for uppercase letters
@@ -125,6 +127,30 @@ def check_password(password):
     return strength, suggestions
 
 
+def generate_password(length=16):
+    """Generate a random password using a cryptographically secure source.
+
+    Always contains lowercase, uppercase, digits and symbols, and avoids
+    obvious patterns (repeats and sequences) by retrying until it rates STRONG.
+    """
+    if length < 8:
+        raise ValueError("Password length must be at least 8.")
+
+    symbols = "!@#$%^&*()-_=+[]{};:,.?"
+    pools = [string.ascii_lowercase, string.ascii_uppercase, string.digits, symbols]
+    everything = "".join(pools)
+
+    candidate = ""
+    for _ in range(100):
+        chars = [secrets.choice(pool) for pool in pools]
+        chars += [secrets.choice(everything) for _ in range(length - len(pools))]
+        secrets.SystemRandom().shuffle(chars)
+        candidate = "".join(chars)
+        if check_password(candidate)[0] == "STRONG":
+            break
+    return candidate
+
+
 def check_pwned(password, timeout=5, opener=urllib.request.urlopen):
     """Check how many times a password appears in known data breaches.
 
@@ -163,7 +189,22 @@ def main():
         help="also check if the password appears in known data breaches "
         "(sends only a 5-character hash prefix to haveibeenpwned.com)",
     )
+    parser.add_argument(
+        "--generate",
+        nargs="?",
+        const=16,
+        type=int,
+        metavar="LENGTH",
+        help="generate a secure random password instead (default length: 16)",
+    )
     args = parser.parse_args()
+
+    if args.generate is not None:
+        try:
+            print(generate_password(args.generate))
+        except ValueError as error:
+            parser.error(str(error))
+        return
 
     print("=" * 40)
     print("       PASSWORD SECURITY CHECKER")
