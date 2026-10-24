@@ -59,3 +59,21 @@ Final rating: `WEAK` (0-2), `MEDIUM` (3-4), `STRONG` (5+). Passwords on the comm
 - Command-line arguments and a simple GUI
 
 ![Tests](https://github.com/foxnix27/password-security-checker/actions/workflows/tests.yml/badge.svg)
+
+## Breach check (optional)
+
+```bash
+python password_checker.py --pwned
+```
+
+Checks whether the password appears in known data breaches using the
+[Have I Been Pwned](https://haveibeenpwned.com/API/v3#PwnedPasswords) range API.
+It uses k-anonymity: only the first 5 characters of the password's SHA-1 hash
+are sent, so the password itself never leaves your computer.
+## Password generator
+
+```bash
+python password_checker.py --generate       # 16 characters
+python password_checker.py --generate 24    # custom length
+```
+
