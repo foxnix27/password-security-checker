@@ -1,6 +1,33 @@
 import pytest
 
-from password_checker import check_password, has_repeated_chars, has_sequence
+from password_checker import (
+    COMMON_PASSWORDS,
+    check_password,
+    has_repeated_chars,
+    has_sequence,
+    load_common_passwords,
+)
+
+
+def test_load_common_passwords_ignores_comments_and_blanks(tmp_path):
+    f = tmp_path / "words.txt"
+    f.write_text("# comment\n\nHunter2\n  letmein  \n", encoding="utf-8")
+    assert load_common_passwords(f) == {"hunter2", "letmein"}
+
+
+def test_load_common_passwords_missing_file_uses_fallback(tmp_path):
+    words = load_common_passwords(tmp_path / "does_not_exist.txt")
+    assert "123456" in words
+
+
+def test_shipped_wordlist_is_loaded():
+    assert "123456" in COMMON_PASSWORDS
+    assert len(COMMON_PASSWORDS) > 50
+
+
+def test_common_password_check_is_case_insensitive():
+    strength, _ = check_password("PassWord123")
+    assert strength == "WEAK"
 
 
 def test_common_password_is_weak():
@@ -15,7 +42,7 @@ def test_short_simple_password_is_weak():
 
 
 def test_medium_password():
-    strength, _ = check_password("Hello123")
+    strength, _ = check_password("Zebra835")
     assert strength == "MEDIUM"
 
 

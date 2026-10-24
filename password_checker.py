@@ -1,12 +1,34 @@
 import getpass
 import re
+from pathlib import Path
 
-# Small sample of very common passwords (extend this or load from a file).
-COMMON_PASSWORDS = {
+COMMON_PASSWORDS_FILE = Path(__file__).with_name("common_passwords.txt")
+
+# Used only if common_passwords.txt is missing.
+FALLBACK_COMMON_PASSWORDS = {
     "123456", "12345678", "123456789", "password", "password1", "qwerty",
     "qwerty123", "abc123", "111111", "123123", "admin", "letmein",
-    "welcome", "iloveyou", "monkey", "dragon", "football", "sunshine",
 }
+
+
+def load_common_passwords(path=COMMON_PASSWORDS_FILE):
+    """Load common passwords (one per line, lowercase) from a text file.
+
+    Blank lines and lines starting with '#' are ignored.
+    Falls back to a small built-in set if the file does not exist.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {
+                line.strip().lower()
+                for line in f
+                if line.strip() and not line.startswith("#")
+            }
+    except FileNotFoundError:
+        return set(FALLBACK_COMMON_PASSWORDS)
+
+
+COMMON_PASSWORDS = load_common_passwords()
 
 # Sequences that make a password easier to guess.
 SEQUENCES = [
