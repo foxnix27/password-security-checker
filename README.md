@@ -57,3 +57,5 @@ Final rating: `WEAK` (0-2), `MEDIUM` (3-4), `STRONG` (5+). Passwords on the comm
 - Load a larger common-password list from a file
 - Entropy estimation
 - Command-line arguments and a simple GUI
+
+![Tests](https://github.com/foxnix27/password-security-checker/actions/workflows/tests.yml/badge.svg)
