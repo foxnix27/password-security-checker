@@ -1,12 +1,66 @@
 import pytest
 
+import urllib.error
+
 from password_checker import (
     COMMON_PASSWORDS,
     check_password,
+    check_pwned,
     has_repeated_chars,
     has_sequence,
     load_common_passwords,
 )
+
+
+class FakeResponse:
+    def __init__(self, text):
+        self._text = text
+
+    def read(self):
+        return self._text.encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+# SHA-1("password") = 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
+PASSWORD_SUFFIX = "1E4C9B93F3F0682250B6CF8331B7EE68FD8"
+
+
+def test_check_pwned_found_and_only_sends_prefix():
+    seen = {}
+
+    def fake_opener(request, timeout):
+        seen["url"] = request.full_url
+        return FakeResponse(f"0000000000000000000000000000000000A:3\r\n{PASSWORD_SUFFIX}:12345\r\n")
+
+    assert check_pwned("password", opener=fake_opener) == 12345
+    assert seen["url"].endswith("/range/5BAA6")
+    assert PASSWORD_SUFFIX not in seen["url"]
+
+
+def test_check_pwned_not_found_returns_zero():
+    def fake_opener(request, timeout):
+        return FakeResponse("0000000000000000000000000000000000A:3\r\n")
+
+    assert check_pwned("password", opener=fake_opener) == 0
+
+
+def test_check_pwned_padding_entries_count_as_zero():
+    def fake_opener(request, timeout):
+        return FakeResponse(f"{PASSWORD_SUFFIX}:0\r\n")
+
+    assert check_pwned("password", opener=fake_opener) == 0
+
+
+def test_check_pwned_offline_returns_none():
+    def fake_opener(request, timeout):
+        raise urllib.error.URLError("no network")
+
+    assert check_pwned("password", opener=fake_opener) is None
 
 
 def test_load_common_passwords_ignores_comments_and_blanks(tmp_path):
