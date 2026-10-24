@@ -1,6 +1,12 @@
+import argparse
 import getpass
+import hashlib
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
+
+HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/"
 
 COMMON_PASSWORDS_FILE = Path(__file__).with_name("common_passwords.txt")
 
@@ -119,7 +125,46 @@ def check_password(password):
     return strength, suggestions
 
 
+def check_pwned(password, timeout=5, opener=urllib.request.urlopen):
+    """Check how many times a password appears in known data breaches.
+
+    Uses the Have I Been Pwned range API with k-anonymity: only the first 5
+    characters of the password's SHA-1 hash are sent, never the password
+    itself or the full hash.
+
+    Returns the number of times the password was seen (0 = not found),
+    or None if the service could not be reached.
+    """
+    sha1 = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = sha1[:5], sha1[5:]
+
+    request = urllib.request.Request(
+        HIBP_RANGE_URL + prefix,
+        headers={"User-Agent": "password-security-checker", "Add-Padding": "true"},
+    )
+    try:
+        with opener(request, timeout=timeout) as response:
+            body = response.read().decode("utf-8")
+    except (urllib.error.URLError, OSError):
+        return None
+
+    for line in body.splitlines():
+        hash_suffix, _, count = line.partition(":")
+        if hash_suffix.strip().upper() == suffix:
+            return int(count.strip() or 0)
+    return 0
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Check how strong a password is.")
+    parser.add_argument(
+        "--pwned",
+        action="store_true",
+        help="also check if the password appears in known data breaches "
+        "(sends only a 5-character hash prefix to haveibeenpwned.com)",
+    )
+    args = parser.parse_args()
+
     print("=" * 40)
     print("       PASSWORD SECURITY CHECKER")
     print("=" * 40)
@@ -127,6 +172,17 @@ def main():
     password = getpass.getpass("Enter password: ")
 
     strength, suggestions = check_password(password)
+
+    if args.pwned:
+        count = check_pwned(password)
+        if count is None:
+            print("\nCould not reach the breach database (are you offline?).")
+        elif count > 0:
+            print(f"\nWARNING: this password appeared in {count:,} data breaches!")
+            strength = "WEAK"
+            suggestions.append("Never use this password again. Choose a new one.")
+        else:
+            print("\nGood news: this password was not found in known breaches.")
 
     print(f"\nPassword strength: {strength}")
 
