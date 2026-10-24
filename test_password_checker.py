@@ -1,15 +1,47 @@
 import pytest
 
+import string
 import urllib.error
 
 from password_checker import (
     COMMON_PASSWORDS,
     check_password,
     check_pwned,
+    generate_password,
     has_repeated_chars,
     has_sequence,
     load_common_passwords,
 )
+
+
+def test_short_password_always_gets_length_suggestion():
+    # 8-11 character passwords used to get no length advice
+    _, suggestions = check_password("Zebra835")
+    assert "Use at least 12 characters." in suggestions
+
+
+def test_generate_password_length_and_character_classes():
+    for length in (8, 16, 32):
+        password = generate_password(length)
+        assert len(password) == length
+        assert any(c in string.ascii_lowercase for c in password)
+        assert any(c in string.ascii_uppercase for c in password)
+        assert any(c in string.digits for c in password)
+        assert any(c not in string.ascii_letters + string.digits for c in password)
+
+
+def test_generate_password_is_strong_and_random():
+    first, second = generate_password(), generate_password()
+    assert check_password(first)[0] == "STRONG"
+    assert first != second
+
+
+def test_generate_password_rejects_too_short_length():
+    try:
+        generate_password(4)
+    except ValueError:
+        return
+    raise AssertionError("expected ValueError")
 
 
 class FakeResponse:
