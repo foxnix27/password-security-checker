@@ -1,8 +1,45 @@
-import re
 import getpass
+import re
+
+# Small sample of very common passwords (extend this or load from a file).
+COMMON_PASSWORDS = {
+    "123456", "12345678", "123456789", "password", "password1", "qwerty",
+    "qwerty123", "abc123", "111111", "123123", "admin", "letmein",
+    "welcome", "iloveyou", "monkey", "dragon", "football", "sunshine",
+}
+
+# Sequences that make a password easier to guess.
+SEQUENCES = [
+    "abcdefghijklmnopqrstuvwxyz",
+    "0123456789",
+    "qwertyuiop",
+    "asdfghjkl",
+    "zxcvbnm",
+]
+
+
+def has_sequence(password, length=4):
+    """Return True if the password contains a run like 'abcd', '1234' or 'qwer'
+    (forwards or backwards)."""
+    lowered = password.lower()
+    for seq in SEQUENCES:
+        for candidate in (seq, seq[::-1]):
+            for i in range(len(candidate) - length + 1):
+                if candidate[i:i + length] in lowered:
+                    return True
+    return False
+
+
+def has_repeated_chars(password, count=3):
+    """Return True if the same character appears `count` or more times in a row."""
+    return re.search(r"(.)\1{%d,}" % (count - 1), password) is not None
 
 
 def check_password(password):
+    # Very common passwords are weak no matter how they score otherwise.
+    if password.lower() in COMMON_PASSWORDS:
+        return "WEAK", ["This is a very common password. Choose something unique."]
+
     score = 0
     suggestions = []
 
@@ -37,6 +74,17 @@ def check_password(password):
         score += 1
     else:
         suggestions.append("Add at least one special character.")
+
+    # Penalise predictable patterns
+    if has_repeated_chars(password):
+        score -= 1
+        suggestions.append("Avoid repeating the same character 3+ times in a row.")
+
+    if has_sequence(password):
+        score -= 1
+        suggestions.append("Avoid sequences like 'abcd', '1234' or 'qwer'.")
+
+    score = max(score, 0)
 
     # Determine strength
     if score <= 2:
